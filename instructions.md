@@ -2,7 +2,7 @@
 
 Initialize a new project to build an automated GitHub README generator. The goal is to create a system that automatically updates or appends to a repository's README.md file whenever Python files (.py) or Jupyter Notebooks (.ipynb) are pushed or uploaded to GitHub.
 
-Please build the project according to the following technical blueprint:
+The project according to the following technical blueprint:
 
 1. Directory Structure:
    - Create a workflow file at: `.github/workflows/auto-readme.yml`
