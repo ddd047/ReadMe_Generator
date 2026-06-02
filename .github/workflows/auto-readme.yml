@@ -1,0 +1,49 @@
+name: Auto Update README
+
+on:
+  push:
+    paths:
+      - '**/*.py'
+      - '**/*.ipynb'
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Crucial to allow writing/pushing back to the repo
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Allows checking HEAD~1 for diffs
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install google-genai
+
+      - name: Generate README
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+        run: |
+          python script/generate_readme.py
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "ReadmeBot"
+          git config --global user.email "readme-bot@users.noreply.github.com"
+          if [ -f README.md ]; then
+            git add README.md
+            # Only commit and push if there are changes to commit
+            git diff --quiet && git diff --staged --quiet || (git commit -m "docs: auto-updated README" && git push) || exit 0
+          else
+            echo "README.md does not exist, skipping commit/push."
+          fi
+
