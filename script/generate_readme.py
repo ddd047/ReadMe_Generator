@@ -223,6 +223,5 @@ Strict instructions:
         sys.exit(1)
 
 
-# Entry point of the script
 if __name__ == "__main__":
     main()

@@ -1,4 +1,4 @@
-name: Auto Update README
+name: Auto Update ReadMe
 
 on:
   push:
