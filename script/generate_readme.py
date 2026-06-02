@@ -9,6 +9,7 @@ try:
 except ImportError:
     genai = None
 
+
 def get_changed_files():
     """
     Get a list of modified or added files in the latest commit.
@@ -20,7 +21,7 @@ def get_changed_files():
             ["git", "diff", "--name-only", "HEAD~1", "HEAD"],
             capture_output=True,
             text=True,
-            check=True
+            check=True,
         )
         files = res.stdout.splitlines()
         return [f.strip() for f in files if f.strip()]
@@ -33,7 +34,7 @@ def get_changed_files():
             ["git", "show", "--name-only", "--pretty=format:", "HEAD"],
             capture_output=True,
             text=True,
-            check=True
+            check=True,
         )
         files = res.stdout.splitlines()
         return [f.strip() for f in files if f.strip()]
@@ -43,10 +44,7 @@ def get_changed_files():
     # 3. Try git ls-files
     try:
         res = subprocess.run(
-            ["git", "ls-files"],
-            capture_output=True,
-            text=True,
-            check=True
+            ["git", "ls-files"], capture_output=True, text=True, check=True
         )
         files = res.stdout.splitlines()
         return [f.strip() for f in files if f.strip()]
@@ -63,15 +61,16 @@ def get_changed_files():
             files.append(rel_path)
     return files
 
+
 def parse_ipynb(filepath):
     """
     Parse Jupyter Notebook files to extract code and markdown cells,
     stripping complex cell and file metadata.
     """
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
-        
+
         content = []
         cells = data.get("cells", [])
         for idx, cell in enumerate(cells):
@@ -79,43 +78,52 @@ def parse_ipynb(filepath):
             source = cell.get("source", "")
             if isinstance(source, list):
                 source = "".join(source)
-            
+
             if cell_type == "markdown":
                 content.append(f"### Cell {idx} (Markdown):\n{source.strip()}\n")
             elif cell_type == "code":
-                content.append(f"### Cell {idx} (Code):\n```python\n{source.strip()}\n```\n")
+                content.append(
+                    f"### Cell {idx} (Code):\n```python\n{source.strip()}\n```\n"
+                )
         return "\n".join(content)
     except Exception as e:
         print(f"Error parsing notebook {filepath}: {e}", file=sys.stderr)
         return ""
 
+
 def read_py(filepath):
     """Read Python file content safely."""
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             return f.read()
     except Exception as e:
         print(f"Error reading file {filepath}: {e}", file=sys.stderr)
         return ""
 
+
 def main():
     # Retrieve API key
     api_key = os.environ.get("AI_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if not api_key:
-        print("Error: Neither AI_API_KEY nor GEMINI_API_KEY environment variable is set.", file=sys.stderr)
+        print(
+            "Error: Neither AI_API_KEY nor GEMINI_API_KEY environment variable is set.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     print("Scanning for changed files...")
     all_files = get_changed_files()
-    
+
     # Filter for Python files and Jupyter Notebooks
-    target_files = [f for f in all_files if f.endswith(('.py', '.ipynb'))]
-    
+    target_files = [f for f in all_files if f.endswith((".py", ".ipynb"))]
+
     # Filter out generate_readme.py itself to avoid self-referencing cycle
     target_files = [f for f in target_files if "generate_readme.py" not in f]
 
     if not target_files:
-        print("No Python (.py) or Jupyter Notebook (.ipynb) files modified or added in this commit.")
+        print(
+            "No Python (.py) or Jupyter Notebook (.ipynb) files modified or added in this commit."
+        )
         sys.exit(0)
 
     print(f"Found target files to document: {target_files}")
@@ -139,20 +147,20 @@ def main():
         if not os.path.exists(filepath):
             print(f"File {filepath} no longer exists. Skipping.")
             continue
-        
+
         print(f"Extracting content from {filepath}...")
-        if filepath.endswith('.ipynb'):
+        if filepath.endswith(".ipynb"):
             content = parse_ipynb(filepath)
         else:
             content = read_py(filepath)
-        
+
         if content.strip():
-            files_content_summary.append(
-                f"### File: {filepath}\n\n```\n{content}\n```"
-            )
+            files_content_summary.append(f"### File: {filepath}\n\n```\n{content}\n```")
 
     if not files_content_summary:
-        print("All target files are empty or could not be parsed. Exiting without updating README.")
+        print(
+            "All target files are empty or could not be parsed. Exiting without updating README."
+        )
         sys.exit(0)
 
     # Build files content representation
@@ -160,7 +168,10 @@ def main():
 
     # Initialize Gemini Client
     if genai is None:
-        print("Error: 'google-genai' SDK is not installed. Please run 'pip install google-genai'.", file=sys.stderr)
+        print(
+            "Error: 'google-genai' SDK is not installed. Please run 'pip install google-genai'.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     try:
@@ -192,7 +203,7 @@ Strict instructions:
     print("Calling Gemini API to generate README update...")
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model="gemini-2.5-flash",
             contents=prompt,
         )
         new_readme_content = response.text
@@ -211,5 +222,7 @@ Strict instructions:
         print(f"Error writing README.md: {e}", file=sys.stderr)
         sys.exit(1)
 
+
+# Entry point
 if __name__ == "__main__":
     main()

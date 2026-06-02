@@ -30,4 +30,4 @@ Please build the project according to the following technical blueprint:
 4. Execution Guardrails:
    - Use clean, well-commented Python code.
    - Implement robust error handling (e.g., if a file is empty or the API fails to respond).
-   - Provide an implementation plan and a detailed task checklist before writing the files.
+   - Provide an implementation plan and a detailed task checklist before writing the files..
