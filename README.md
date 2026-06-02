@@ -1,12 +1,14 @@
 # Automated GitHub README Generator 🤖📝
 
-An automated CI/CD pipeline that uses the official Google GenAI SDK and Gemini API (`gemini-2.5-flash`) to dynamically document your project. Whenever you push Python (`.py`) or Jupyter Notebook (`.ipynb`) files to GitHub, the pipeline automatically updates or appends file documentation to your `README.md` in real-time.
+An automated CI/CD pipeline that uses the official Google GenAI SDK and Gemini API (`gemini-2.5-flash`) to dynamically document your project. Whenever you push any files to GitHub, the pipeline automatically updates or appends file documentation to your `README.md` in real-time.
 
 ---
 
 ## 🚀 How it Works
-1. **GitHub Action Trigger**: The workflow monitors the repository and triggers automatically on a `push` containing `.py` or `.ipynb` file changes.
-2. **Code Extraction**: The script reads the updated code. For Jupyter Notebooks, it parses the file using standard JSON tools and strips out complex cell and notebook metadata, extracting only code and markdown.
+1. **GitHub Action Trigger**: The workflow monitors the repository and triggers automatically on **any** push event.
+2. **Safe Code Extraction**: The script reads the updated files. 
+   - For Jupyter Notebooks (`.ipynb`), it extracts code and markdown cells while removing cell metadata.
+   - For other files, it verifies file size constraints (skips files > 1MB) and binary structures (safely identifying non-text files) to prevent sending malformed data to Gemini.
 3. **Gemini API Analysis**: The file content is analyzed by the Gemini model alongside the existing `README.md`.
 4. **Style-Preserving Commit**: The bot appends a contextually relevant section explaining the new files at the bottom, matching the existing document's tone, styling, and formatting, and commits it back to the branch.
 
@@ -53,4 +55,4 @@ You can test the generation script locally before pushing to GitHub.
    ```bash
    python3 script/generate_readme.py
    ```
-   *(Note: The script compares the latest commit with its parent using git. To run a dry-run test, commit your python/notebook files first!)*
+   *(Note: The script compares the latest commit with its parent using git. To run a dry-run test, commit your files first!)*
