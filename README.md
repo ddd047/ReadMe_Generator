@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Automated GitHub README Generator 🤖📝
 
 An automated CI/CD pipeline that uses the official Google GenAI SDK and Gemini API (`gemini-2.5-flash`) to dynamically document your project. Whenever you push files to GitHub, the pipeline automatically updates or appends file documentation to your `README.md` in real-time.
@@ -90,4 +89,3 @@ This GitHub Actions workflow is the central orchestrator for the automated READM
     4.  **Generate README:** The `script/generate_readme.py` script is executed. This script utilizes an AI model (powered by an `AI_API_KEY` securely passed as an environment variable) to analyze recent code changes and generate or update the `README.md` content based on these modifications.
     5.  **Commit and Push Changes:** After the README generation, this step checks if the `README.md` file has been modified. If changes are detected, the workflow automatically commits the updated file with a standardized message ("docs: auto-updated README") and pushes these changes back to the repository, effectively updating the documentation.
 *   **Permissions:** The workflow requires `contents: write` permission to be able to successfully commit and push changes back to the repository.
->>>>>>> 18d39b38fa041e555faab791ac35852565d18746
