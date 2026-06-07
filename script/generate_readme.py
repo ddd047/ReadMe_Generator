@@ -91,14 +91,56 @@ def parse_ipynb(filepath):
         return ""
 
 
-def read_py(filepath):
-    """Read Python file content safely."""
+def get_all_files():
+    """
+    Get a list of all files in the repository.
+    """
+    # 1. Try git ls-files
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            return f.read()
+        res = subprocess.run(
+            ["git", "ls-files"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        files = res.stdout.splitlines()
+        return [f.strip() for f in files if f.strip()]
+    except Exception:
+        pass
+
+    # 2. Fallback to recursive directory walk
+    files = []
+    exclude_dirs = {".git", ".github", "__pycache__", "venv", ".venv", "node_modules"}
+    for root, dirs, filenames in os.walk("."):
+        dirs[:] = [d for d in dirs if d not in exclude_dirs]
+        for filename in filenames:
+            rel_path = os.path.relpath(os.path.join(root, filename), ".")
+            files.append(rel_path)
+    return files
+
+
+def read_file_content(filepath):
+    """
+    Safely reads any file content. If it is a notebook, parses cells.
+    If it is a generic file, checks size constraints and decodes safely.
+    """
+    if filepath.endswith(".ipynb"):
+        return parse_ipynb(filepath)
+
+    try:
+        # Avoid reading large files (limit to 1MB)
+        if os.path.getsize(filepath) > 1024 * 1024:
+            return "[Large File: Content omitted from prompt]"
+            
+        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+            content = f.read()
+            # Check for null bytes which usually indicate a binary file
+            if '\x00' in content:
+                return "[Binary/Non-text File]"
+            return content
     except Exception as e:
         print(f"Error reading file {filepath}: {e}", file=sys.stderr)
-        return ""
+        return f"[Unreadable File: {e}]"
 
 
 def main():
@@ -111,19 +153,30 @@ def main():
         )
         sys.exit(1)
 
-    print("Scanning for changed files...")
-    all_files = get_changed_files()
+    # Check if we should do a full scan of all repository files
+    force_all = "--all" in sys.argv
+    readme_path = "README.md"
+    readme_exists = os.path.exists(readme_path)
 
-    # Filter for Python files and Jupyter Notebooks
-    target_files = [f for f in all_files if f.endswith((".py", ".ipynb"))]
+    if force_all or not readme_exists:
+        if force_all:
+            print("Force flag '--all' detected. Scanning all files in the repository...")
+        else:
+            print("README.md does not exist. Performing initial scan of all files in the repository...")
+        all_files = get_all_files()
+    else:
+        print("Scanning for changed files in the last commit...")
+        all_files = get_changed_files()
 
-    # Filter out generate_readme.py itself to avoid self-referencing cycle
-    target_files = [f for f in target_files if "generate_readme.py" not in f]
+    # Document all files, excluding workflows, hidden files/dirs, and the generator script
+    exclude_prefixes = ('.git', '.github', 'script/', 'README.md', 'instructions.md')
+    target_files = [
+        f for f in all_files 
+        if not any(f.startswith(p) for p in exclude_prefixes)
+    ]
 
     if not target_files:
-        print(
-            "No Python (.py) or Jupyter Notebook (.ipynb) files modified or added in this commit."
-        )
+        print("No documentable files modified or added in this commit.")
         sys.exit(0)
 
     print(f"Found target files to document: {target_files}")
@@ -149,10 +202,7 @@ def main():
             continue
 
         print(f"Extracting content from {filepath}...")
-        if filepath.endswith(".ipynb"):
-            content = parse_ipynb(filepath)
-        else:
-            content = read_py(filepath)
+        content = read_file_content(filepath)
 
         if content.strip():
             files_content_summary.append(f"### File: {filepath}\n\n```\n{content}\n```")
@@ -200,18 +250,31 @@ Strict instructions:
 6. Return ONLY the final, complete README.md content. Do not include markdown code block backticks (like ```markdown ... ```) around the entire output; output raw markdown text ready to be written to a file.
 """
 
-    print("Calling Gemini API to generate README update...")
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-        )
-        new_readme_content = response.text
-        if not new_readme_content or not new_readme_content.strip():
-            raise ValueError("Empty response returned from the Gemini API.")
-    except Exception as e:
-        print(f"Error calling Gemini API: {e}", file=sys.stderr)
-        sys.exit(1)
+    import time
+    max_retries = 3
+    delay = 2
+    backoff_factor = 2
+    response = None
+
+    for attempt in range(max_retries):
+        try:
+            print(f"Calling Gemini API to generate README update (Attempt {attempt + 1}/{max_retries})...")
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+            )
+            new_readme_content = response.text
+            if not new_readme_content or not new_readme_content.strip():
+                raise ValueError("Empty response returned from the Gemini API.")
+            break
+        except Exception as e:
+            if attempt == max_retries - 1:
+                print(f"Error calling Gemini API after {max_retries} attempts: {e}", file=sys.stderr)
+                sys.exit(1)
+            print(f"API call failed: {e}. Retrying in {delay} seconds...", file=sys.stderr)
+            time.sleep(delay)
+            delay *= backoff_factor
+
 
     # Overwrite/write the README.md file
     try:
