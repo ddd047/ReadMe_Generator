@@ -2,9 +2,7 @@ name: Auto Update ReadMe
 
 on:
   push:
-    paths:
-      - '**/*.py'
-      - '**/*.ipynb'
+
 
 jobs:
   update-readme:

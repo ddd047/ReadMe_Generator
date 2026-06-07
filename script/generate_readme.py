@@ -143,6 +143,42 @@ def read_file_content(filepath):
         return f"[Unreadable File: {e}]"
 
 
+def is_documentable(filepath):
+    """
+    Checks if a file should be documented, ignoring configuration dirs,
+    common cache folders, and binary file types.
+    """
+    # Exclude files in system, config, build, or virtualenv directories
+    exclude_dirs = {'.git', '.github', 'script', '__pycache__', 'venv', '.venv', 'node_modules', 'build', 'dist'}
+    
+    # Check if any folder in the filepath is in exclude_dirs
+    parts = filepath.replace('\\', '/').split('/')
+    if any(part in exclude_dirs for part in parts):
+        return False
+        
+    # Exclude specific files
+    exclude_files = {'README.md', 'instructions.md', 'generate_readme.py'}
+    if os.path.basename(filepath) in exclude_files:
+        return False
+
+    # Exclude binary / build file extensions
+    exclude_extensions = {
+        # Compiled files
+        '.pyc', '.pyo', '.pyd', '.class', '.o', '.obj', '.so', '.dll', '.dylib', '.exe',
+        # Media / Images / PDFs
+        '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.pdf', '.mp3', '.mp4', '.wav',
+        # Archives
+        '.zip', '.tar', '.gz', '.tgz', '.bz2', '.rar', '.7z',
+        # Databases / Data
+        '.db', '.sqlite', '.sqlite3', '.pkl', '.pickle',
+    }
+    _, ext = os.path.splitext(filepath)
+    if ext.lower() in exclude_extensions:
+        return False
+        
+    return True
+
+
 def main():
     # Retrieve API key
     api_key = os.environ.get("AI_API_KEY") or os.environ.get("GEMINI_API_KEY")
@@ -169,11 +205,7 @@ def main():
         all_files = get_changed_files()
 
     # Document all files, excluding workflows, hidden files/dirs, and the generator script
-    exclude_prefixes = ('.git', '.github', 'script/', 'README.md', 'instructions.md')
-    target_files = [
-        f for f in all_files 
-        if not any(f.startswith(p) for p in exclude_prefixes)
-    ]
+    target_files = [f for f in all_files if is_documentable(f)]
 
     if not target_files:
         print("No documentable files modified or added in this commit.")
